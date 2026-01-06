@@ -8,3 +8,4 @@ python-decouple==3.8
 pytz==2025.2
 sqlparse==0.5.5
 tzdata==2025.3
+gunicorn==21.2.0  
