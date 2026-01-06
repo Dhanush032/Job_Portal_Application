@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block title %}Browse Jobs - Job Portal{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    
+    .search-box {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .search-box input,
+    .search-box select {
+        flex: 1;
+        padding: 0.8rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1rem;
+    }
+    
+    .job-list {
+        display: grid;
+        gap: 1.5rem;
+    }
+    
+    .job-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
+        cursor: pointer;
+    }
+    
+    .job-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    
+    .job-card h3 {
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .company-name {
+        color: #4CAF50;
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+    
+    .job-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        color: #666;
+        margin-bottom: 1rem;
+    }
+    
+    .job-description {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+    
+    .job-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: white;
+        border-radius: 10px;
+    }
+</style>
+
+<div class="page-header">
+    <h1>Browse Jobs</h1>
+</div>
+
+<div class="search-box">
+    <input type="text" id="search-input" placeholder="Search by title or company..." onkeyup="filterJobs()">
+    <select id="location-filter" onchange="filterJobs()">
+        <option value="">All Locations</option>
+    </select>
+    <select id="type-filter" onchange="filterJobs()">
+        <option value="">All Types</option>
+        <option value="full_time">Full Time</option>
+        <option value="part_time">Part Time</option>
+        <option value="contract">Contract</option>
+        <option value="internship">Internship</option>
+    </select>
+</div>
+
+<div id="jobs-container">
+    <div style="text-align: center; padding: 2rem;">
+        <p>Loading jobs...</p>
+    </div>
+</div>
+
+<script>
+    let allJobs = [];
+    
+    
+    async function fetchJobs() {
+        try {
+            const response = await fetch('/api/jobs/');
+            allJobs = await response.json();
+            
+            
+            const locations = [...new Set(allJobs.map(job => job.location))];
+            const locationFilter = document.getElementById('location-filter');
+            locations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                locationFilter.appendChild(option);
+            });
+            
+            displayJobs(allJobs);
+        } catch (error) {
+            console.error('Error fetching jobs:', error);
+        }
+    }
+    
+    
+    function displayJobs(jobs) {
+        const container = document.getElementById('jobs-container');
+        
+        if (jobs.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>No jobs found</h3>
+                    <p>Try adjusting your search filters</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="job-list">
+                ${jobs.map(job => `
+                    <div class="job-card" onclick="window.location.href='/jobs/${job.id}'">
+                        <h3>${job.title}</h3>
+                        <div class="company-name">${job.company_name}</div>
+                        
+                        <div class="job-details">
+                            <span>📍 ${job.location}</span>
+                            <span>💼 ${job.job_type.replace('_', ' ')}</span>
+                            <span>💰 ${job.salary}</span>
+                        </div>
+                        
+                        <div class="job-description">
+                            ${job.description.substring(0, 150)}...
+                        </div>
+                        
+                        <div class="job-footer">
+                            <span style="color: #999;">Posted ${getTimeAgo(job.posted_date)}</span>
+                            <span style="color: #4CAF50; font-weight: bold;">${job.total_applications} applicants</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    
+    function filterJobs() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const locationFilter = document.getElementById('location-filter').value;
+        const typeFilter = document.getElementById('type-filter').value;
+        
+        const filtered = allJobs.filter(job => {
+            const matchesSearch = job.title.toLowerCase().includes(searchTerm) || 
+                                job.company_name.toLowerCase().includes(searchTerm);
+            const matchesLocation = !locationFilter || job.location === locationFilter;
+            const matchesType = !typeFilter || job.job_type === typeFilter;
+            
+            return matchesSearch && matchesLocation && matchesType;
+        });
+        
+        displayJobs(filtered);
+    }
+    
+
+    function getTimeAgo(date) {
+        const now = new Date();
+        const past = new Date(date);
+        const diffInDays = Math.floor((now - past) / (1000 * 60 * 60 * 24));
+        
+        if (diffInDays === 0) return 'today';
+        if (diffInDays === 1) return 'yesterday';
+        if (diffInDays < 7) return `${diffInDays} days ago`;
+        return `${Math.floor(diffInDays / 7)} weeks ago`;
+    }
+    
+    fetchJobs();
+</script>
+{% endblock %} 

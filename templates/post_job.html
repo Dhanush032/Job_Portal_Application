@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Post a Job - Job Portal{% endblock %}
+
+{% block content %}
+<style>
+    .post-job-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .form-group-full {
+        grid-column: 1 / -1;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.8rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+</style>
+
+<div class="post-job-container">
+    <h1>Post a New Job</h1>
+    <p style="margin-bottom: 2rem; color: #666;">Fill in the details about the position you're hiring for</p>
+    
+    <form id="post-job-form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Job Title *</label>
+                <input type="text" name="title" required placeholder="e.g., Senior Software Engineer">
+            </div>
+            
+            <div class="form-group">
+                <label>Company Name *</label>
+                <input type="text" name="company_name" required placeholder="Your Company Name">
+            </div>
+            
+            <div class="form-group">
+                <label>Location *</label>
+                <input type="text" name="location" required placeholder="e.g., New York, Remote">
+            </div>
+            
+            <div class="form-group">
+                <label>Job Type *</label>
+                <select name="job_type" required>
+                    <option value="">Select Type</option>
+                    <option value="full_time">Full Time</option>
+                    <option value="part_time">Part Time</option>
+                    <option value="contract">Contract</option>
+                    <option value="internship">Internship</option>
+                </select>
+            </div>
+            
+            <div class="form-group-full">
+                <label>Salary Range *</label>
+                <input type="text" name="salary" required placeholder="e.g., $80,000 - $120,000 or Negotiable">
+            </div>
+            
+            <div class="form-group-full">
+                <label>Job Description *</label>
+                <textarea name="description" rows="6" required placeholder="Describe the role, responsibilities, and what the candidate will be doing..."></textarea>
+            </div>
+            
+            <div class="form-group-full">
+                <label>Requirements *</label>
+                <textarea name="requirements" rows="6" required placeholder="List required skills, qualifications, and experience..."></textarea>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn" style="margin-top: 1.5rem; width: 100%;">Post Job</button>
+    </form>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    const userRole = localStorage.getItem('user_role');
+    
+    
+    if (!token || userRole !== 'employer') {
+        showMessage('Only employers can post jobs', 'error');
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000);
+    }
+    
+    
+    document.getElementById('post-job-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+        
+        try {
+            const response = await fetch('/api/jobs/create/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showMessage('Job posted successfully!', 'success');
+                e.target.reset();
+                
+                setTimeout(() => {
+                    window.location.href = `/jobs/${result.id}`;
+                }, 2000);
+            } else {
+                showMessage('Failed to post job. Please check all fields.', 'error');
+            }
+        } catch (error) {
+            showMessage('An error occurred. Please try again.', 'error');
+        }
+    });
+</script>
+{% endblock %}

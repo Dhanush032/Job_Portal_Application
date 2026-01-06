@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+
+{% block title %}My Applications - Job Portal{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .applications-grid {
+        display: grid;
+        gap: 1.5rem;
+    }
+    
+    .application-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+    }
+    
+    .application-info h3 {
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .company-name {
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .application-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+    }
+    
+    .detail-item strong {
+        color: #333;
+    }
+    
+    .application-status {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: space-between;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        text-transform: capitalize;
+    }
+    
+    .status-pending {
+        background: #FFF3CD;
+        color: #856404;
+    }
+    
+    .status-accepted {
+        background: #D4EDDA;
+        color: #155724;
+    }
+    
+    .status-rejected {
+        background: #F8D7DA;
+        color: #721C24;
+    }
+    
+    .applied-date {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .empty-state {
+        background: white;
+        padding: 3rem;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .empty-state h3 {
+        color: #666;
+        margin-bottom: 1rem;
+    }
+    
+    .filter-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .filter-btn {
+        padding: 0.7rem 1.5rem;
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+    
+    .filter-btn.active {
+        background: #4CAF50;
+        color: white;
+        border-color: #4CAF50;
+    }
+    
+    .filter-btn:hover {
+        border-color: #4CAF50;
+    }
+</style>
+
+<div class="page-header">
+    <h1>My Applications</h1>
+    <p>Track all your job applications in one place</p>
+</div>
+
+<div class="filter-buttons">
+    <button class="filter-btn active" onclick="filterApplications('all')">All Applications</button>
+    <button class="filter-btn" onclick="filterApplications('pending')">Pending</button>
+    <button class="filter-btn" onclick="filterApplications('accepted')">Accepted</button>
+    <button class="filter-btn" onclick="filterApplications('rejected')">Rejected</button>
+</div>
+
+<div id="applications-container">
+    <div style="text-align: center; padding: 2rem;">
+        <p>Loading applications...</p>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    const userRole = localStorage.getItem('user_role');
+    
+    
+    if (!token || userRole !== 'job_seeker') {
+        window.location.href = '/login';
+    }
+    
+    let allApplications = [];
+    let currentFilter = 'all';
+    
+    async function fetchApplications() {
+        try {
+            const response = await fetch('/api/applications/my-applications/', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            allApplications = await response.json();
+            displayApplications(allApplications);
+        } catch (error) {
+            console.error('Error fetching applications:', error);
+            document.getElementById('applications-container').innerHTML = `
+                <div class="empty-state">
+                    <h3>Error loading applications</h3>
+                    <p>Please try again later</p>
+                </div>
+            `;
+        }
+    }
+    
+    
+    function displayApplications(applications) {
+        const container = document.getElementById('applications-container');
+        
+        if (applications.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>No applications found</h3>
+                    <p>Start applying to jobs to see them here</p>
+                    <a href="/jobs" class="btn" style="margin-top: 1rem;">Browse Jobs</a>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="applications-grid">
+                ${applications.map(app => `
+                    <div class="application-card">
+                        <div class="application-info">
+                            <h3>${app.job_title}</h3>
+                            <div class="company-name">${app.company_name}</div>
+                            
+                            <div class="application-details">
+                                <div class="detail-item">
+                                    <strong>Applied:</strong>
+                                    ${new Date(app.applied_date).toLocaleDateString('en-US', { 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    })}
+                                </div>
+                                <div class="detail-item">
+                                    <strong>Resume:</strong>
+                                    <a href="${app.resume}" target="_blank" class="btn btn-small">View Resume</a>
+                                </div>
+                            </div>
+                            
+                            ${app.cover_letter ? `
+                                <div style="margin-top: 1rem;">
+                                    <strong>Cover Letter:</strong>
+                                    <p style="color: #666; margin-top: 0.5rem;">${app.cover_letter}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="application-status">
+                            <span class="status-badge status-${app.status}">${app.status}</span>
+                            <div class="applied-date">
+                                Applied ${getTimeAgo(app.applied_date)}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    
+    function filterApplications(status) {
+        currentFilter = status;
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        
+        if (status === 'all') {
+            displayApplications(allApplications);
+        } else {
+            const filtered = allApplications.filter(app => app.status === status);
+            displayApplications(filtered);
+        }
+    }
+    
+    
+    function getTimeAgo(date) {
+        const now = new Date();
+        const past = new Date(date);
+        const diffInMs = now - past;
+        const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+        
+        if (diffInDays === 0) return 'today';
+        if (diffInDays === 1) return 'yesterday';
+        if (diffInDays < 7) return `${diffInDays} days ago`;
+        if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+        if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+        return `${Math.floor(diffInDays / 365)} years ago`;
+    }
+    
+    
+    fetchApplications();
+</script>
+{% endblock %}

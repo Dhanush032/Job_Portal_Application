@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - Job Portal{% endblock %}
+
+{% block content %}
+<style>
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .profile-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .form-group-full {
+        grid-column: 1 / -1;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.8rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1rem;
+        font-family: Arial, sans-serif;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #4CAF50;
+    }
+    
+    .form-group input:disabled {
+        background-color: #f5f5f5;
+        cursor: not-allowed;
+    }
+    
+    .role-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: #4CAF50;
+        color: white;
+        border-radius: 20px;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+    
+    .btn-update {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        margin-top: 1.5rem;
+        cursor: pointer;
+    }
+    
+    .btn-update:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+    
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="profile-container">
+    <div class="profile-header">
+        <h1>My Profile</h1>
+        <div id="role-display"></div>
+    </div>
+    
+    <form id="profile-form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" name="username" disabled>
+            </div>
+            
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label>First Name *</label>
+                <input type="text" id="first_name" name="first_name" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Last Name *</label>
+                <input type="text" id="last_name" name="last_name" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" id="phone" name="phone" placeholder="Enter phone number">
+            </div>
+            
+            <div class="form-group-full">
+                <label>Address</label>
+                <textarea id="address" name="address" rows="3" placeholder="Enter your address"></textarea>
+            </div>
+            
+            <!-- Employer specific fields -->
+            <div id="employer-fields" style="display: none; grid-column: 1 / -1;">
+                <h3 style="margin-bottom: 1rem; color: #333;">Company Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Company Name</label>
+                        <input type="text" id="company_name" name="company_name" placeholder="Your company name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Company Website</label>
+                        <input type="url" id="company_website" name="company_website" placeholder="https://example.com">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Job seeker specific fields -->
+            <div id="seeker-fields" style="display: none; grid-column: 1 / -1;">
+                <h3 style="margin-bottom: 1rem; color: #333;">Professional Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Skills</label>
+                        <input type="text" id="skills" name="skills" placeholder="e.g., Python, Django, React">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Years of Experience</label>
+                        <input type="number" id="experience_years" name="experience_years" min="0" placeholder="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-update" id="update-btn">Update Profile</button>
+    </form>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    
+    console.log('[Profile] Script loaded');
+    
+    const token = localStorage.getItem('access_token');
+    const userRole = localStorage.getItem('user_role');
+    
+    
+    if (!token) {
+        console.error('[Profile] No token found');
+        showMessage('Please login first', 'error');
+        setTimeout(function() {
+            window.location.href = '/login';
+        }, 1500);
+        return;
+    }
+    
+    console.log('[Profile] Token found, user role:', userRole);
+    
+    let currentProfile = null;
+    let isUpdating = false;
+    
+    function fetchProfile() {
+        console.log('[Profile] Fetching profile data...');
+        
+        fetch('/api/accounts/profile/', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(function(response) {
+            console.log('[Profile] Response status:', response.status);
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    console.error('[Profile] Unauthorized - token invalid');
+                    localStorage.clear();
+                    showMessage('Session expired. Please login again.', 'error');
+                    setTimeout(function() {
+                        window.location.href = '/login';
+                    }, 1500);
+                    return null;
+                }
+                throw new Error('HTTP ' + response.status);
+            }
+            
+            return response.json();
+        })
+        .then(function(profile) {
+            if (profile) {
+                console.log('[Profile] Profile loaded:', profile);
+                currentProfile = profile;
+                displayProfile(profile);
+            }
+        })
+        .catch(function(error) {
+            console.error('[Profile] Error fetching profile:', error);
+            showMessage('Error loading profile: ' + error.message, 'error');
+        });
+    }
+    
+    
+    function displayProfile(profile) {
+        console.log('[Profile] Displaying profile data');
+        
+        
+        const roleDisplay = document.getElementById('role-display');
+        if (roleDisplay) {
+            roleDisplay.innerHTML = '<span class="role-badge">' + profile.role.replace('_', ' ') + '</span>';
+        }
+        
+        
+        if (profile.role === 'employer') {
+            const empFields = document.getElementById('employer-fields');
+            if (empFields) empFields.style.display = 'block';
+        } else if (profile.role === 'job_seeker') {
+            const seekerFields = document.getElementById('seeker-fields');
+            if (seekerFields) seekerFields.style.display = 'block';
+        }
+        
+        
+        const fields = {
+            'username': profile.username,
+            'email': profile.email,
+            'first_name': profile.first_name,
+            'last_name': profile.last_name,
+            'phone': profile.phone,
+            'address': profile.address,
+            'company_name': profile.company_name,
+            'company_website': profile.company_website,
+            'skills': profile.skills,
+            'experience_years': profile.experience_years
+        };
+        
+        for (var fieldId in fields) {
+            if (fields.hasOwnProperty(fieldId)) {
+                var element = document.getElementById(fieldId);
+                if (element) {
+                    element.value = fields[fieldId] || '';
+                }
+            }
+        }
+        
+        console.log('[Profile] Profile displayed successfully');
+    }
+    
+    
+    function updateProfile(event) {
+        event.preventDefault();
+        
+        console.log('[Profile] Update button clicked');
+        
+        if (isUpdating) {
+            console.log('[Profile] Already updating, ignoring click');
+            return;
+        }
+        
+        isUpdating = true;
+        
+        var button = document.getElementById('update-btn');
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Updating...';
+        }
+        
+        try {
+            var data = {};
+            
+            
+            var emailEl = document.getElementById('email');
+            var firstNameEl = document.getElementById('first_name');
+            var lastNameEl = document.getElementById('last_name');
+            
+            if (!emailEl || !emailEl.value.trim()) {
+                throw new Error('Email is required');
+            }
+            if (!firstNameEl || !firstNameEl.value.trim()) {
+                throw new Error('First name is required');
+            }
+            if (!lastNameEl || !lastNameEl.value.trim()) {
+                throw new Error('Last name is required');
+            }
+            
+            data.email = emailEl.value.trim();
+            data.first_name = firstNameEl.value.trim();
+            data.last_name = lastNameEl.value.trim();
+            
+            var phoneEl = document.getElementById('phone');
+            if (phoneEl && phoneEl.value && phoneEl.value.trim()) {
+                data.phone = phoneEl.value.trim();
+            }
+            
+            var addressEl = document.getElementById('address');
+            if (addressEl && addressEl.value && addressEl.value.trim()) {
+                data.address = addressEl.value.trim();
+            }
+            
+            
+            if (currentProfile && currentProfile.role === 'employer') {
+                var companyNameEl = document.getElementById('company_name');
+                if (companyNameEl && companyNameEl.value && companyNameEl.value.trim()) {
+                    data.company_name = companyNameEl.value.trim();
+                }
+                
+                var companyWebsiteEl = document.getElementById('company_website');
+                if (companyWebsiteEl && companyWebsiteEl.value && companyWebsiteEl.value.trim()) {
+                    data.company_website = companyWebsiteEl.value.trim();
+                }
+            } else if (currentProfile && currentProfile.role === 'job_seeker') {
+                var skillsEl = document.getElementById('skills');
+                if (skillsEl && skillsEl.value && skillsEl.value.trim()) {
+                    data.skills = skillsEl.value.trim();
+                }
+                
+                var experienceEl = document.getElementById('experience_years');
+                if (experienceEl && experienceEl.value) {
+                    data.experience_years = parseInt(experienceEl.value) || 0;
+                }
+            }
+            
+            console.log('[Profile] Data to send:', data);
+            
+            
+            fetch('/api/accounts/profile/', {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(function(response) {
+                console.log('[Profile] Update response status:', response.status);
+                return response.json().then(function(result) {
+                    return { status: response.status, ok: response.ok, data: result };
+                });
+            })
+            .then(function(responseObj) {
+                console.log('[Profile] Update response data:', responseObj.data);
+                
+                if (responseObj.ok) {
+                    console.log('[Profile] Update successful');
+                    showMessage('✅ Profile updated successfully!', 'success');
+                    currentProfile = responseObj.data;
+                    
+                    
+                    setTimeout(function() {
+                        fetchProfile();
+                    }, 1000);
+                    
+                } else {
+                    
+                    console.error('[Profile] Update failed:', responseObj.data);
+                    
+                    var errorMsg = 'Failed to update profile. ';
+                    var result = responseObj.data;
+                    
+                    if (result.error) {
+                        errorMsg += result.error;
+                    } else if (result.email) {
+                        errorMsg += 'Email: ' + result.email[0];
+                    } else if (result.phone) {
+                        errorMsg += 'Phone: ' + result.phone[0];
+                    } else if (result.first_name) {
+                        errorMsg += 'First Name: ' + result.first_name[0];
+                    } else if (result.last_name) {
+                        errorMsg += 'Last Name: ' + result.last_name[0];
+                    } else if (result.detail) {
+                        errorMsg += result.detail;
+                    } else {
+                        errorMsg += 'Please check your input.';
+                    }
+                    
+                    showMessage(errorMsg, 'error');
+                }
+            })
+            .catch(function(error) {
+                console.error('[Profile] Update error:', error);
+                showMessage('Error: ' + error.message, 'error');
+            })
+            .finally(function() {
+                isUpdating = false;
+                
+                
+                var button = document.getElementById('update-btn');
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Update Profile';
+                }
+            });
+            
+        } catch (error) {
+            console.error('[Profile] Update error:', error);
+            showMessage('Error: ' + error.message, 'error');
+            
+            isUpdating = false;
+            var button = document.getElementById('update-btn');
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Update Profile';
+            }
+        }
+    }
+    
+    
+    var form = document.getElementById('profile-form');
+    if (form) {
+        form.addEventListener('submit', updateProfile);
+        console.log('[Profile] Event listener attached to form');
+    } else {
+        console.error('[Profile] Form not found!');
+    }
+    
+    
+    console.log('[Profile] Initializing...');
+    fetchProfile();
+    
+})();
+</script>
+{% endblock %}

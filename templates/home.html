@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Job Portal{% endblock %}
+
+{% block content %}
+<style>
+    .hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4rem 2rem;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    
+    .hero h1 {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .hero p {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-top: 3rem;
+    }
+    
+    .feature-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .feature-card h3 {
+        color: #333;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-card p {
+        color: #666;
+    }
+</style>
+
+<div class="hero">
+    <h1>Welcome to Job Portal</h1>
+    <p>Find your dream job or hire the best talent</p>
+    <a href="/jobs" class="btn">Browse Jobs</a>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <h3>For Job Seekers</h3>
+        <p>Browse thousands of job listings, apply with your resume, and track your applications.</p>
+        <a href="/register" class="btn">Register as Job Seeker</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>For Employers</h3>
+        <p>Post job openings, review applications, and find the perfect candidates for your company.</p>
+        <a href="/register" class="btn">Register as Employer</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>Easy to Use</h3>
+        <p>Simple interface with powerful features. Get started in minutes and manage everything in one place.</p>
+        <a href="/jobs" class="btn">View Jobs</a>
+    </div>
+</div>
+
+<div style="margin-top: 3rem; text-align: center;">
+    <h2>Recent Statistics</h2>
+    <div id="stats" style="display: flex; justify-content: space-around; margin-top: 2rem;">
+        <div>
+            <h3 id="total-jobs">Loading...</h3>
+            <p>Active Jobs</p>
+        </div>
+        <div>
+            <h3 id="total-accounts">Loading...</h3>
+            <p>Registered Users</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    
+fetch('/api/jobs/')
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('total-jobs').textContent = data.length;
+    })
+    .catch(err => {
+        document.getElementById('total-jobs').textContent = 'N/A';
+    });
+
+async function fetchUsers() {
+    try {
+        const token = localStorage.getItem('access_token'); 
+        const response = await fetch('/api/accounts/users/', {
+            headers: token ? {'Authorization': `Bearer ${token}`} : {}
+        });
+        const users = await response.json();
+        document.getElementById('total-accounts').textContent = users.length;
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        document.getElementById('total-accounts').textContent = 'N/A';
+    }
+}
+
+fetchUsers();
+
+</script>
+{% endblock %}
+

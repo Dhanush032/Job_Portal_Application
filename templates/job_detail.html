@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+
+{% block title %}Job Details - Job Portal{% endblock %}
+
+{% block content %}
+<style>
+    .job-detail-container {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .job-main {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s ease;
+    }
+
+    .job-main:hover {
+        box-shadow: var(--shadow-lg);
+    }
+
+    .job-sidebar {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: var(--shadow-md);
+        height: fit-content;
+        position: sticky;
+        top: 100px;
+        transition: all 0.3s ease;
+    }
+
+    .job-sidebar:hover {
+        box-shadow: var(--shadow-lg);
+    }
+
+    .job-header h1 {
+        color: var(--gray-900);
+        margin-bottom: 0.5rem;
+        font-size: 2rem;
+    }
+
+    .company-name {
+        color: var(--primary);
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .job-meta {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: var(--gray-50);
+        border-radius: 8px;
+        border: 1px solid var(--gray-200);
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        color: var(--gray-700);
+    }
+
+    .meta-item strong {
+        color: var(--gray-800);
+        min-width: 80px;
+        font-size: 0.9rem;
+    }
+
+    .meta-item span {
+        color: var(--gray-700);
+        font-size: 0.9rem;
+    }
+
+    .section {
+        margin-bottom: 2rem;
+    }
+
+    .section h3 {
+        color: var(--gray-900);
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 3px solid var(--primary);
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .section p {
+        color: var(--gray-700);
+        line-height: 1.8;
+        font-size: 1rem;
+    }
+
+    .apply-box {
+        background: var(--gray-50);
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 2px solid var(--gray-200);
+        transition: all 0.3s ease;
+    }
+
+    .apply-box:hover {
+        border-color: var(--primary-light);
+        background: white;
+    }
+
+    .apply-box h4 {
+        margin-bottom: 1rem;
+        color: var(--gray-900);
+        font-size: 1.1rem;
+    }
+
+    .apply-box .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .apply-box .form-group:last-of-type {
+        margin-bottom: 1rem;
+    }
+
+    .apply-box .btn {
+        width: 100%;
+        padding: 0.875rem;
+        font-size: 1rem;
+    }
+
+    .info-card {
+        background: var(--primary-light);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid var(--primary);
+    }
+
+    .info-card p {
+        margin: 0;
+        color: var(--gray-700);
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 768px) {
+        .job-detail-container {
+            grid-template-columns: 1fr;
+        }
+
+        .job-sidebar {
+            position: static;
+        }
+
+        .job-meta {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="job-detail-container">
+    <div class="job-main">
+        <div id="job-content">
+            <p style="text-align: center; padding: 2rem;">Loading job details...</p>
+        </div>
+    </div>
+    
+    <div class="job-sidebar">
+        <div id="apply-section"></div>
+    </div>
+</div>
+
+<script>
+    
+    const pathSegments = window.location.pathname.split('/').filter(seg => seg);
+    const jobId = pathSegments[pathSegments.length - 1];
+    const token = localStorage.getItem('access_token');
+    const userRole = localStorage.getItem('user_role');
+    
+    
+    async function fetchJobDetail() {
+        try {
+            const response = await fetch(`/api/jobs/${jobId}/`);
+            const job = await response.json();
+            
+            displayJob(job);
+            setupApplySection(job);
+        } catch (error) {
+            console.error('Error fetching job:', error);
+            document.getElementById('job-content').innerHTML = '<p>Job not found</p>';
+        }
+    }
+    
+    
+    function displayJob(job) {
+        document.getElementById('job-content').innerHTML = `
+            <div class="job-header">
+                <h1>${job.title}</h1>
+                <div class="company-name">${job.company_name}</div>
+            </div>
+            
+            <div class="job-meta">
+                <div class="meta-item">
+                    <strong>📍 Location:</strong> ${job.location}
+                </div>
+                <div class="meta-item">
+                    <strong>💼 Type:</strong> ${job.job_type.replace('_', ' ')}
+                </div>
+                <div class="meta-item">
+                    <strong>💰 Salary:</strong> ${job.salary}
+                </div>
+                <div class="meta-item">
+                    <strong>📅 Posted:</strong> ${new Date(job.posted_date).toLocaleDateString()}
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>Job Description</h3>
+                <p>${job.description}</p>
+            </div>
+            
+            <div class="section">
+                <h3>Requirements</h3>
+                <p>${job.requirements}</p>
+            </div>
+            
+            <div class="section">
+                <h3>About the Employer</h3>
+                <p><strong>Posted by:</strong> ${job.employer_name}</p>
+                <p><strong>Email:</strong> ${job.employer_email}</p>
+                <p><strong>Total Applications:</strong> ${job.total_applications}</p>
+            </div>
+        `;
+    }
+    
+    function setupApplySection(job) {
+        const applySection = document.getElementById('apply-section');
+        
+        if (!token) {
+            applySection.innerHTML = `
+                <div class="apply-box">
+                    <h4>Want to apply?</h4>
+                    <p>Please login as a job seeker to apply for this position.</p>
+                    <a href="/login" class="btn" style="display: block; text-align: center; margin-top: 1rem;">Login</a>
+                </div>
+            `;
+            return;
+        }
+        
+        if (userRole !== 'job_seeker') {
+            applySection.innerHTML = `
+                <div class="apply-box">
+                    <p>Only job seekers can apply for jobs.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        applySection.innerHTML = `
+            <div class="apply-box">
+                <h4>Apply for this Job</h4>
+                <form id="apply-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label>Resume (PDF/DOC) *</label>
+                        <input type="file" name="resume" accept=".pdf,.doc,.docx" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Cover Letter (Optional)</label>
+                        <textarea name="cover_letter" rows="5" placeholder="Why are you a good fit for this role?"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn" style="width: 100%;">Submit Application</button>
+                </form>
+            </div>
+        `;
+        
+        document.getElementById('apply-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitApplication(job.id, e.target);
+        });
+    }
+    
+    async function submitApplication(jobId, form) {
+        const formData = new FormData(form);
+        formData.append('job', jobId);
+        
+        try {
+            const response = await fetch('/api/applications/apply/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showMessage('Application submitted successfully!', 'success');
+                form.reset();
+                
+                setTimeout(() => {
+                    window.location.href = '/my-applications';
+                }, 2000);
+            } else {
+                let errorMsg = 'Failed to submit application. ';
+                if (result.non_field_errors) {
+                    errorMsg += result.non_field_errors[0];
+                }
+                showMessage(errorMsg, 'error');
+            }
+        } catch (error) {
+            showMessage('An error occurred. Please try again.', 'error');
+        }
+    }
+    
+    fetchJobDetail();
+</script>
+{% endblock %}
